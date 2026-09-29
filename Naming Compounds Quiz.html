@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Naming Compounds</title>
+<!--
+  NAMING COMPOUNDS - quick recall quiz with a Dodgeball reward.
+
+  Tab 1  Name     : a formula is shown, the student types the name (case doesn't matter, spelling does).
+  Tab 2  Formula  : a name is shown, the student types the formula. Digits become subscripts as they
+                    type. Wrong capitalization gets the X plus "You're close - just fix capitalization."
+  Tab 3  Dodgeball: Dodgeball/dodgeball.html in a frame. Unlocks when the best score on BOTH quiz
+                    tabs is above 95%.
+
+  Scoring: 10 questions per set. 10 pts on the first try, then 8, 6, 4, 3, 2, 1. After a seventh
+  miss the answer is revealed and the question scores 0. Best scores are stored locally
+  in this browser (localStorage), nothing is sent anywhere.
+
+  To edit the question pool, change the COMPOUNDS list below. Each entry is
+  [formula, name] with an optional third element listing alternate accepted names.
+-->
+<style>
+  :root {
+    --navy:#1d2f5e; --navy2:#27457f; --gold:#f2b81c; --bg:#f4f1ea; --card:#ffffff;
+    --ink:#1a1a24; --muted:#6b6b76; --red:#d62828; --green:#2a9d4a; --line:#e6e1d4;
+  }
+  * { box-sizing:border-box; }
+  html, body { margin:0; min-height:100%; }
+  body { font-family: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background:var(--bg);
+         color:var(--ink); display:flex; flex-direction:column; min-height:100vh; }
+
+  header { background:var(--navy); color:#fff; padding:14px 20px 0; }
+  .brand { display:flex; align-items:center; gap:14px; margin-bottom:12px; }
+  .brand img { height:46px; width:46px; background:#fff; border-radius:8px; padding:2px; object-fit:contain; }
+  .brand h1 { font-size:22px; margin:0; letter-spacing:.3px; }
+  .brand small { display:block; font-weight:400; opacity:.75; font-size:13px; margin-top:2px; }
+  nav { display:flex; gap:6px; flex-wrap:wrap; }
+  nav button { background:rgba(255,255,255,.12); color:#fff; border:0; padding:12px 22px; font-size:16px;
+               font-weight:600; border-radius:10px 10px 0 0; cursor:pointer; display:flex; align-items:center; gap:8px; }
+  nav button:hover { background:rgba(255,255,255,.22); }
+  nav button.active { background:var(--bg); color:var(--navy); }
+  nav button .best { font-size:12px; font-weight:600; opacity:.8; background:rgba(0,0,0,.18); padding:2px 8px; border-radius:10px; }
+  nav button.active .best { background:var(--navy); color:#fff; opacity:1; }
+
+  main { flex:1; display:flex; justify-content:center; padding:24px 16px 32px; }
+  .panel { display:none; width:100%; max-width:780px; }
+  .panel.active { display:block; }
+  .card { background:var(--card); border-radius:16px; box-shadow:0 6px 24px rgba(0,0,0,.08); padding:26px 32px 28px; }
+  .instr { color:var(--muted); margin:0 0 18px; font-size:16px; line-height:1.4; }
+  .topline { display:flex; justify-content:space-between; align-items:center; font-weight:700; color:var(--navy); font-size:15px; }
+  .dots { display:flex; gap:6px; margin:12px 0 26px; }
+  .dots span { flex:1; height:9px; border-radius:5px; background:#e5e0d2; }
+  .dots span.full { background:var(--green); }
+  .dots span.part { background:var(--gold); }
+  .dots span.zero { background:var(--red); }
+  .dots span.cur  { background:var(--navy); }
+
+  .prompt { font-size:46px; text-align:center; margin:6px 0 26px; min-height:64px; font-weight:600; color:var(--navy); }
+  .prompt sub { font-size:60%; }
+  .answerrow { display:flex; gap:10px; }
+  input.answer { flex:1; font-size:26px; padding:12px 16px; border:2px solid #cfc9b8; border-radius:10px; outline:none;
+                 font-family: inherit; background:#fffdf8; min-width:0; }
+  input.answer:focus { border-color:var(--navy); box-shadow:0 0 0 3px rgba(29,47,94,.12); }
+  input.answer.shake { animation:shake .4s; border-color:var(--red); }
+  input.answer:disabled { background:#f3f1ea; color:var(--green); border-color:var(--green); }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)}
+                     60%{transform:translateX(-6px)} 80%{transform:translateX(6px)} }
+  button.go { background:var(--navy); color:#fff; border:0; font-size:18px; font-weight:700; padding:0 26px;
+              border-radius:10px; cursor:pointer; }
+  button.go:hover { background:var(--navy2); }
+  .feedback { min-height:30px; margin-top:16px; font-size:18px; font-weight:600; }
+  .feedback.bad { color:var(--red); }
+  .feedback.good { color:var(--green); }
+  .tries { color:var(--muted); font-size:14px; margin-top:6px; }
+
+  .bigx { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none;
+          font-size:min(260px, 45vw); font-weight:900; color:var(--red); opacity:0; transition:opacity .12s;
+          text-shadow:0 8px 30px rgba(0,0,0,.25); line-height:1; }
+  .bigx.show { opacity:.92; }
+
+  .score { font-size:56px; font-weight:800; color:var(--navy); text-align:center; margin:4px 0 0; }
+  .score small { display:block; font-size:16px; color:var(--muted); font-weight:600; }
+  .banner { text-align:center; font-weight:700; padding:10px 14px; border-radius:10px; margin:16px 0; }
+  .banner.win { background:#e6f6ea; color:var(--green); }
+  .banner.info { background:#fff6dc; color:#8a6400; }
+  .results table { width:100%; border-collapse:collapse; margin:14px 0 20px; font-size:16px; }
+  .results th, .results td { padding:8px 6px; border-bottom:1px solid var(--line); text-align:left; }
+  .results th { color:var(--muted); font-weight:600; font-size:13px; text-transform:uppercase; letter-spacing:.4px; }
+  .results td.pts { text-align:right; font-weight:700; }
+  .center { text-align:center; }
+  button.big { background:var(--gold); color:var(--navy); border:0; font-size:18px; font-weight:800; padding:12px 28px;
+               border-radius:10px; cursor:pointer; }
+  button.big:hover { filter:brightness(1.05); }
+
+  .lockbox { text-align:center; padding:20px 10px; }
+  .lockbox .lock { font-size:72px; }
+  .lockbox h2 { color:var(--navy); margin:8px 0 6px; }
+  .req { display:flex; justify-content:center; gap:18px; margin:18px 0 8px; flex-wrap:wrap; }
+  .req div { background:var(--bg); border-radius:12px; padding:14px 22px; min-width:170px; }
+  .req b { display:block; font-size:28px; color:var(--navy); }
+  .req .ok b { color:var(--green); }
+  .req span { color:var(--muted); font-size:13px; }
+  iframe { width:100%; aspect-ratio:4 / 3; border:0; border-radius:12px; background:#0b0b14; display:block; }
+  .gamehint { color:var(--muted); font-size:14px; text-align:center; margin:10px 0 0; }
+
+  footer { text-align:center; color:var(--muted); font-size:12px; padding:0 0 14px; }
+  footer a { color:var(--muted); }
+  @media (max-width:600px) {
+    .card { padding:20px 16px; }
+    .prompt { font-size:34px; }
+    input.answer { font-size:20px; }
+    nav button { padding:10px 14px; font-size:14px; }
+    .brand h1 { font-size:18px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <img src="Dodgeball/NC%20logo.png" alt="" onerror="this.style.display='none'">
+    <h1>Naming Compounds <small>Quick recall quiz</small></h1>
+  </div>
+  <nav>
+    <button data-tab="name" class="active">Name <span class="best" id="best-name">best --</span></button>
+    <button data-tab="formula">Formula <span class="best" id="best-formula">best --</span></button>
+    <button data-tab="dodgeball"><span id="dodge-icon">&#128274;</span> Dodgeball <span class="best" id="best-dodgeball">locked</span></button>
+  </nav>
+</header>
+
+<main>
+  <section class="panel active" id="panel-name">
+    <div class="card" id="quiz-name"></div>
+  </section>
+  <section class="panel" id="panel-formula">
+    <div class="card" id="quiz-formula"></div>
+  </section>
+  <section class="panel" id="panel-dodgeball">
+    <div class="card" id="dodge-card"></div>
+  </section>
+</main>
+<footer>Scores are saved only in this browser. <a href="#" id="reset">Reset saved scores</a></footer>
+<div class="bigx" id="bigx">&#10005;</div>
+
+<script>
+'use strict';
+
+/* ------------------------------------------------------------------ */
+/*  Question pool: [formula, name, optional alternate names]            */
+/* ------------------------------------------------------------------ */
+const COMPOUNDS = [
+  // samples from the instructions
+  ['NaOH',        'sodium hydroxide'],
+  ['CaBr2',       'calcium bromide'],
+  ['FeCl3',       'iron(III) chloride'],
+  ['Co(NO3)2',    'cobalt(II) nitrate'],
+  ['Mg(OH)2',     'magnesium hydroxide'],
+  ['Fe2(SO4)3',   'iron(III) sulfate'],
+  // group 1 and 2 metals
+  ['LiF',         'lithium fluoride'],
+  ['Li2CO3',      'lithium carbonate'],
+  ['Na2S',        'sodium sulfide'],
+  ['Na2CO3',      'sodium carbonate'],
+  ['NaC2H3O2',    'sodium acetate'],
+  ['NaNO2',       'sodium nitrite'],
+  ['K3P',         'potassium phosphide'],
+  ['K2SO4',       'potassium sulfate'],
+  ['KNO3',        'potassium nitrate'],
+  ['RbBr',        'rubidium bromide'],
+  ['Rb2O',        'rubidium oxide'],
+  ['BeCl2',       'beryllium chloride'],
+  ['MgO',         'magnesium oxide'],
+  ['Mg3(PO4)2',   'magnesium phosphate'],
+  ['Ca3N2',       'calcium nitride'],
+  ['CaCO3',       'calcium carbonate'],
+  ['Ca3(PO4)2',   'calcium phosphate'],
+  ['SrI2',        'strontium iodide'],
+  ['Sr(NO3)2',    'strontium nitrate'],
+  // transition and post-transition metals
+  ['FeO',         'iron(II) oxide'],
+  ['Fe2O3',       'iron(III) oxide'],
+  ['FeS',         'iron(II) sulfide'],
+  ['CoS',         'cobalt(II) sulfide'],
+  ['CoBr3',       'cobalt(III) bromide'],
+  ['Co(OH)3',     'cobalt(III) hydroxide'],
+  ['Cu2O',        'copper(I) oxide'],
+  ['CuCl',        'copper(I) chloride'],
+  ['CuSO4',       'copper(II) sulfate'],
+  ['Cu(OH)2',     'copper(II) hydroxide'],
+  ['Cu(C2H3O2)2', 'copper(II) acetate'],
+  ['ZnCl2',       'zinc chloride'],
+  ['Zn(NO3)2',    'zinc nitrate'],
+  ['Al2O3',       'aluminum oxide', ['aluminium oxide']],
+  ['AlPO4',       'aluminum phosphate', ['aluminium phosphate']],
+  ['Al(OH)3',     'aluminum hydroxide', ['aluminium hydroxide']],
+  ['SnF2',        'tin(II) fluoride'],
+  ['SnO2',        'tin(IV) oxide'],
+  ['Sn(SO4)2',    'tin(IV) sulfate'],
+  ['PbI2',        'lead(II) iodide'],
+  ['Pb(NO3)2',    'lead(II) nitrate'],
+  ['PbO2',        'lead(IV) oxide'],
+];
+
+const PTS = [10, 8, 6, 4, 3, 2, 1];   // points by attempt number
+const SET_SIZE = 10;
+const UNLOCK_ABOVE = 95;              // best score must be ABOVE this on both tabs
+
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                            */
+/* ------------------------------------------------------------------ */
+const SUBS = '₀₁₂₃₄₅₆₇₈₉';
+const toSub   = s => s.replace(/[0-9]/g, d => SUBS[+d]);
+const fromSub = s => s.replace(/[₀-₉]/g, ch => String(SUBS.indexOf(ch)));
+const fmtFormula = f => f.replace(/[0-9]+/g, m => '<sub>' + m + '</sub>');
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+const normName = s => s.toLowerCase().replace(/\s*\(\s*/g, '(').replace(/\s*\)\s*/g, ') ')
+                       .replace(/\s+/g, ' ').trim();
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const store = {
+  get(k) { try { return localStorage.getItem('nc.' + k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem('nc.' + k, String(v)); } catch (e) {} },
+  del(k) { try { localStorage.removeItem('nc.' + k); } catch (e) {} },
+};
+const best = kind => { const v = +store.get('best.' + kind); return isFinite(v) ? v : 0; };
+const $ = sel => document.querySelector(sel);
+
+let xTimer = null;
+function showX() {
+  const x = $('#bigx'); x.classList.add('show');
+  clearTimeout(xTimer); xTimer = setTimeout(() => x.classList.remove('show'), 650);
+}
+
+/* ------------------------------------------------------------------ */
+/*  A quiz tab                                                          */
+/* ------------------------------------------------------------------ */
+function makeQuiz(kind, root) {
+  const isName = kind === 'name';
+  const instr = isName
+    ? 'Type the <b>name</b> of the compound given. You do not need to capitalize, but spelling counts!'
+    : 'Type the <b>formula</b> for each compound. Subscripts will be added automatically. Use parentheses where necessary. <b>Capitalize correctly!</b>';
+  const st = { q:[], i:0, attempt:0, score:0, log:[], busy:false };
+
+  function start() {
+    st.q = shuffle(COMPOUNDS).slice(0, SET_SIZE);
+    st.i = 0; st.attempt = 0; st.score = 0; st.log = []; st.busy = false;
+    renderQuestion();
+  }
+
+  function dots() {
+    let h = '<div class="dots">';
+    for (let k = 0; k < SET_SIZE; k++) {
+      let cls = '';
+      if (k < st.log.length) cls = st.log[k].pts === 10 ? 'full' : st.log[k].pts > 0 ? 'part' : 'zero';
+      else if (k === st.i) cls = 'cur';
+      h += '<span class="' + cls + '"></span>';
+    }
+    return h + '</div>';
+  }
+
+  function renderQuestion() {
+    const c = st.q[st.i];
+    root.innerHTML =
+      '<p class="instr">' + instr + '</p>' +
+      '<div class="topline"><span>Question ' + (st.i + 1) + ' of ' + SET_SIZE + '</span><span>Score ' + st.score + '</span></div>' +
+      dots() +
+      '<div class="prompt">' + (isName ? fmtFormula(c[0]) : c[1]) + '</div>' +
+      '<div class="answerrow"><input class="answer" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" ' +
+      'placeholder="' + (isName ? 'type the name' : 'type the formula') + '" aria-label="answer">' +
+      '<button class="go">Check</button></div>' +
+      '<div class="feedback"></div><div class="tries"></div>';
+    const input = root.querySelector('input');
+    root.querySelector('.go').addEventListener('click', submit);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
+    if (!isName) {
+      input.addEventListener('input', () => {
+        const pos = input.selectionStart;
+        input.value = toSub(input.value);
+        input.setSelectionRange(pos, pos);
+      });
+    }
+    updateTries();
+    input.focus();
+  }
+
+  function updateTries() {
+    const t = root.querySelector('.tries');
+    if (!t) return;
+    t.textContent = st.attempt < PTS.length
+      ? 'Try ' + (st.attempt + 1) + '  ·  worth ' + PTS[st.attempt] + ' pts'
+      : '';
+  }
+
+  function submit() {
+    if (st.busy) return;
+    const input = root.querySelector('input'), fb = root.querySelector('.feedback');
+    const raw = input.value.trim();
+    if (!raw) { input.focus(); return; }
+    const c = st.q[st.i];
+    let ok, close = false;
+    if (isName) {
+      const accepted = [c[1]].concat(c[2] || []).map(normName);
+      ok = accepted.includes(normName(raw));
+    } else {
+      const typed = fromSub(raw).replace(/\s+/g, '');
+      ok = typed === c[0];
+      close = !ok && typed.toLowerCase() === c[0].toLowerCase();
+    }
+
+    if (ok) {
+      const pts = PTS[st.attempt] !== undefined ? PTS[st.attempt] : 0;
+      st.score += pts;
+      st.log.push({ c, tries: st.attempt + 1, pts });
+      fb.className = 'feedback good';
+      fb.textContent = (st.attempt === 0 ? 'Correct!' : 'Got it!') + '  +' + pts + ' pts';
+      input.disabled = true; st.busy = true;
+      root.querySelector('.topline span:last-child').textContent = 'Score ' + st.score;
+      setTimeout(next, 1000);
+      return;
+    }
+
+    st.attempt++;
+    showX();
+    input.classList.remove('shake'); void input.offsetWidth; input.classList.add('shake');
+    fb.className = 'feedback bad';
+    if (st.attempt >= PTS.length) {
+      const answer = isName ? c[1] : fmtFormula(c[0]);
+      fb.innerHTML = 'The answer is <b>' + answer + '</b>. Moving on.';
+      st.log.push({ c, tries: st.attempt, pts: 0 });
+      input.disabled = true; st.busy = true;
+      setTimeout(next, 2400);
+    } else {
+      fb.textContent = close ? "You're close – just fix capitalization." : 'Not quite – try again.';
+      if (close) input.focus(); else { input.focus(); input.select(); }
+    }
+    updateTries();
+  }
+
+  function next() {
+    st.i++; st.attempt = 0; st.busy = false;
+    if (st.i >= SET_SIZE) finish(); else renderQuestion();
+  }
+
+  function finish() {
+    const prev = best(kind);
+    if (st.score > prev) store.set('best.' + kind, st.score);
+    refreshHeader();
+    const unlocked = isUnlocked();
+    let rows = '';
+    for (const r of st.log) {
+      rows += '<tr><td>' + (isName ? fmtFormula(r.c[0]) : r.c[1]) + '</td>' +
+              '<td>' + (isName ? r.c[1] : fmtFormula(r.c[0])) + '</td>' +
+              '<td>' + r.tries + '</td><td class="pts">' + r.pts + '</td></tr>';
+    }
+    let banner;
+    if (unlocked) banner = '<div class="banner win">Dodgeball is unlocked! Grab the Dodgeball tab when you are ready.</div>';
+    else if (st.score > UNLOCK_ABOVE) banner = '<div class="banner win">Above ' + UNLOCK_ABOVE + '% on this tab! Now do the same on the ' + (isName ? 'Formula' : 'Name') + ' tab to unlock Dodgeball.</div>';
+    else banner = '<div class="banner info">Score above ' + UNLOCK_ABOVE + '% here and on the ' + (isName ? 'Formula' : 'Name') + ' tab to unlock Dodgeball.</div>';
+    root.innerHTML =
+      '<p class="instr">Set complete.</p>' +
+      '<div class="score">' + st.score + '%<small>' + st.score + ' of 100 points  ·  best ' + Math.max(prev, st.score) + '%' +
+      (st.score > prev && prev > 0 ? '  ·  new best!' : '') + '</small></div>' +
+      banner +
+      '<div class="results"><table><tr><th>Prompt</th><th>Answer</th><th>Tries</th><th style="text-align:right">Pts</th></tr>' + rows + '</table></div>' +
+      '<div class="center"><button class="big">New set of 10</button></div>';
+    root.querySelector('.big').addEventListener('click', start);
+    root.querySelector('.big').focus();
+  }
+
+  return { start, focus: () => { const i = root.querySelector('input, button.big'); if (i) i.focus(); } };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Tabs, header, Dodgeball                                            */
+/* ------------------------------------------------------------------ */
+const quizzes = {
+  name: makeQuiz('name', $('#quiz-name')),
+  formula: makeQuiz('formula', $('#quiz-formula')),
+};
+const isUnlocked = () => best('name') > UNLOCK_ABOVE && best('formula') > UNLOCK_ABOVE;
+let frame = null;
+
+function refreshHeader() {
+  const bn = best('name'), bf = best('formula');
+  $('#best-name').textContent = bn ? 'best ' + bn + '%' : 'best --';
+  $('#best-formula').textContent = bf ? 'best ' + bf + '%' : 'best --';
+  const unlocked = isUnlocked(), bd = +store.get('best.dodgeball') || 0;
+  $('#dodge-icon').innerHTML = unlocked ? '&#127942;' : '&#128274;';
+  $('#best-dodgeball').textContent = unlocked ? (bd ? 'best ' + bd : 'unlocked') : 'locked';
+}
+
+function renderDodgeball() {
+  const card = $('#dodge-card');
+  if (!isUnlocked()) {
+    if (frame) { frame.remove(); frame = null; }
+    const bn = best('name'), bf = best('formula');
+    const box = (label, v) => '<div class="' + (v > UNLOCK_ABOVE ? 'ok' : '') + '"><span>' + label + ' best</span><b>' + v + '%</b><span>' +
+                              (v > UNLOCK_ABOVE ? 'done' : 'need above ' + UNLOCK_ABOVE + '%') + '</span></div>';
+    card.innerHTML =
+      '<div class="lockbox"><div class="lock">&#128274;</div><h2>Dodgeball is locked</h2>' +
+      '<p class="instr">Score above ' + UNLOCK_ABOVE + '% on <b>both</b> the Name and Formula quizzes to unlock it.</p>' +
+      '<div class="req">' + box('Name', bn) + box('Formula', bf) + '</div>' +
+      '<p class="gamehint">Your best scores are saved, so you can unlock one tab at a time.</p></div>';
+    return;
+  }
+  if (!frame) {
+    card.innerHTML = '<p class="gamehint">Click the game, then press <b>Enter</b> to start. Arrow keys dodge. ' +
+                     'Come back to the quiz tabs any time.</p>';
+    frame = document.createElement('iframe');
+    frame.src = 'Dodgeball/dodgeball.html';
+    frame.title = 'Dodgeball';
+    frame.allow = 'autoplay';
+    card.appendChild(frame);
+  }
+  setTimeout(() => { try { frame.focus(); frame.contentWindow.focus(); } catch (e) {} }, 50);
+}
+
+function showTab(tab) {
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tab));
+  if (tab === 'dodgeball') renderDodgeball();
+  else {
+    if (frame) { try { frame.contentWindow.postMessage({ type:'dodgeball:pause' }, '*'); } catch (e) {} }
+    quizzes[tab].focus();
+  }
+}
+
+document.querySelectorAll('nav button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+
+// The game reports its final score; keep the best one for the tab badge.
+addEventListener('message', e => {
+  const d = e.data;
+  if (d && d.type === 'dodgeball:gameover' && typeof d.score === 'number') {
+    if (d.score > (+store.get('best.dodgeball') || 0)) store.set('best.dodgeball', d.score);
+    refreshHeader();
+  }
+});
+
+$('#reset').addEventListener('click', e => {
+  e.preventDefault();
+  if (!confirm('Erase the saved best scores on this computer?')) return;
+  for (const k of ['best.name', 'best.formula', 'best.dodgeball']) store.del(k);
+  refreshHeader();
+  if (document.querySelector('#panel-dodgeball').classList.contains('active')) renderDodgeball();
+});
+
+quizzes.name.start();
+quizzes.formula.start();
+refreshHeader();
+</script>
+</body>
+</html>
